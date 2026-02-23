@@ -1,0 +1,3 @@
+pipeline-inspector/venv/
+pipeline-inspector/.env
+pipeline-inspector/__pycache__/
