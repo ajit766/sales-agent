@@ -4,8 +4,10 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText, Sparkles, ArrowRight, CheckCircle2, AlertTriangle, UserCheck,
-  CalendarDays, DollarSign, Send, MapPin
+  CalendarDays, DollarSign, Send, MapPin, Target, Coffee
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import clsx from "clsx";
 
 // --- Types ---
@@ -24,10 +26,17 @@ type AnalysisResponse = {
 
 // --- Components ---
 export default function SalesAgent() {
+  const [activeTab, setActiveTab] = useState<"loop" | "briefing">("loop");
+
+  // Workstream 1 State
   const [transcript, setTranscript] = useState("");
   const [step, setStep] = useState<"input" | "analyzing" | "review" | "committing" | "success" | "error">("input");
   const [analysisData, setAnalysisData] = useState<AnalysisResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Workstream 2 State
+  const [briefingStep, setBriefingStep] = useState<"idle" | "generating" | "complete" | "error">("idle");
+  const [briefingMarkdown, setBriefingMarkdown] = useState<string>("");
 
   // Step 1: Analyze Transcript
   const handleAnalyze = async () => {
@@ -88,7 +97,6 @@ export default function SalesAgent() {
 
   const loadDummyTranscript = async () => {
     try {
-      // Load from the local test file in public/ fallback to hardcoded if not found in Next.js public route
       const res = await fetch("/dummy_transcript.txt");
       if (res.ok) {
         const text = await res.text();
@@ -101,21 +109,67 @@ export default function SalesAgent() {
     }
   };
 
+  // Workstream 2 Generation
+  const handleGenerateBriefing = async () => {
+    setBriefingStep("generating");
+    try {
+      const res = await fetch("/api/briefing", { method: "GET" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Briefing generation failed");
+
+      setBriefingMarkdown(data.markdown);
+      setBriefingStep("complete");
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setBriefingStep("error");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 pb-20">
 
       {/* Premium Header */}
       <header className="border-b border-white/5 bg-slate-950/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between relative">
+
+          {/* Left: Branding */}
           <div className="flex items-center gap-2">
             <div className="bg-indigo-500/10 p-2 rounded-lg border border-indigo-500/20">
               <Sparkles className="w-5 h-5 text-indigo-400" />
             </div>
-            <h1 className="font-semibold text-lg tracking-tight">Copilot Sales Agent</h1>
+            <h1 className="font-semibold text-lg tracking-tight">Sales Agent</h1>
           </div>
-          <div className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full border border-emerald-500/20 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-            Dynamics 365 Connected
+
+          {/* Center: Tabs */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="flex bg-slate-900 rounded-lg p-1 border border-white/5 shadow-inner">
+              <button
+                onClick={() => setActiveTab("loop")}
+                className={clsx(
+                  "px-4 py-1.5 text-sm font-medium rounded-md transition",
+                  activeTab === "loop" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                )}
+              >
+                Meeting to CRM
+              </button>
+              <button
+                onClick={() => setActiveTab("briefing")}
+                className={clsx(
+                  "px-4 py-1.5 text-sm font-medium rounded-md transition",
+                  activeTab === "briefing" ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
+                )}
+              >
+                Daily Briefing
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Status */}
+          <div className="flex items-center gap-4">
+            <div className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full border border-emerald-500/20 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+              Dynamics 365
+            </div>
           </div>
         </div>
       </header>
@@ -123,8 +177,104 @@ export default function SalesAgent() {
       <main className="max-w-4xl mx-auto px-6 py-12">
         <AnimatePresence mode="wait">
 
-          {/* STATE: INPUT */}
-          {step === "input" && (
+          {/* WORKSTREAM 2: DAILY BRIEFING VIEW */}
+          {activeTab === "briefing" && (
+            <motion.div
+              key="briefing-view"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-8"
+            >
+              {briefingStep === "idle" && (
+                <div className="flex flex-col items-center justify-center py-20 text-center space-y-8">
+                  <div className="w-24 h-24 bg-indigo-500/10 rounded-full flex items-center justify-center border border-indigo-500/20">
+                    <Coffee className="w-10 h-10 text-indigo-400" />
+                  </div>
+                  <div className="space-y-4 max-w-lg">
+                    <h2 className="text-4xl font-light tracking-tight text-white">Your Morning <span className="font-medium text-indigo-400">Action Plan</span></h2>
+                    <p className="text-slate-400 text-lg">Stop digging through CRM tasks. We analyze your live dynamics 365 pipeline and structure your entire day using the Eisenhower Matrix.</p>
+                  </div>
+                  <button
+                    onClick={handleGenerateBriefing}
+                    className="px-8 py-4 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl font-medium tracking-wide flex items-center gap-3 transition-all shadow-lg shadow-indigo-500/20 text-lg group"
+                  >
+                    <Target className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    Generate Daily Briefing
+                  </button>
+                </div>
+              )}
+
+              {briefingStep === "generating" && (
+                <div className="flex flex-col items-center justify-center py-32 space-y-8">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-indigo-500 blur-2xl opacity-20 animate-pulse rounded-full" />
+                    <div className="w-20 h-20 bg-slate-900 border border-indigo-500/30 rounded-2xl flex items-center justify-center shadow-xl">
+                      <Sparkles className="w-10 h-10 text-indigo-400 animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-2xl font-medium text-white">Synthesizing Pipeline Intelligence...</h3>
+                    <p className="text-slate-400 max-w-sm mx-auto">
+                      Querying Dynamics 365 opportunities and scoring velocity using Azure AI Foundry...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {briefingStep === "complete" && (
+                <div className="space-y-6">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGenerateBriefing}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Regenerate Briefing
+                    </button>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl prose prose-invert prose-indigo max-w-none
+                        prose-h1:text-3xl prose-h1:font-light prose-h1:tracking-tight prose-h1:mb-8 prose-h1:pb-4 prose-h1:border-b prose-h1:border-white/10
+                        prose-h2:text-xl prose-h2:font-medium prose-h2:text-indigo-300 prose-h2:mt-10
+                        prose-table:overflow-hidden prose-table:rounded-lg prose-table:border prose-table:border-white/10
+                        prose-th:bg-slate-950 prose-th:px-4 prose-th:py-3 prose-th:text-xs prose-th:uppercase prose-th:tracking-wider prose-th:text-slate-400 text-left
+                        prose-td:px-4 prose-td:py-3 prose-td:border-t prose-td:border-white/5
+                        prose-li:text-slate-300 text-slate-300"
+                  >
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h2: ({ node, ...props }) => <h2 className="text-xl font-medium text-indigo-300 mt-16 pt-8 border-t border-white/10" {...props} />,
+                        em: ({ node, ...props }) => <em className="text-slate-500 italic text-sm block mt-4 mb-4" {...props} />,
+                        br: ({ node, ...props }) => <br className="block content-[''] h-8 mt-4 mb-8 border-b border-white/5" {...props} />,
+                      }}
+                    >
+                      {briefingMarkdown}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              )}
+
+              {briefingStep === "error" && (
+                <div className="bg-red-950/20 border border-red-500/20 rounded-2xl p-12 text-center">
+                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <AlertTriangle className="w-8 h-8 text-red-400" />
+                  </div>
+                  <h2 className="text-2xl font-semibold text-white mb-2">Briefing Generation Failed</h2>
+                  <p className="text-red-200/60 mb-8 max-w-lg mx-auto">{errorMessage}</p>
+                  <button
+                    onClick={() => setBriefingStep("idle")}
+                    className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition"
+                  >
+                    Go Back
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* WORKSTREAM 1: MEETING TO CRM LOOP VIEW */}
+          {activeTab === "loop" && step === "input" && (
             <motion.div
               key="input"
               initial={{ opacity: 0, y: 20 }}
@@ -176,7 +326,7 @@ export default function SalesAgent() {
           )}
 
           {/* STATE: ANALYZING / COMMITTING */}
-          {(step === "analyzing" || step === "committing") && (
+          {activeTab === "loop" && (step === "analyzing" || step === "committing") && (
             <motion.div
               key="loading"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -207,7 +357,7 @@ export default function SalesAgent() {
           )}
 
           {/* STATE: REVIEW UI */}
-          {step === "review" && analysisData && (
+          {activeTab === "loop" && step === "review" && analysisData && (
             <motion.div
               key="review"
               initial={{ opacity: 0, y: 20 }}
@@ -333,7 +483,7 @@ export default function SalesAgent() {
           )}
 
           {/* STATE: SUCCESS */}
-          {step === "success" && (
+          {activeTab === "loop" && step === "success" && (
             <motion.div
               key="success"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -363,7 +513,7 @@ export default function SalesAgent() {
           )}
 
           {/* STATE: ERROR */}
-          {step === "error" && (
+          {activeTab === "loop" && step === "error" && (
             <motion.div
               key="error"
               initial={{ opacity: 0, y: 20 }}

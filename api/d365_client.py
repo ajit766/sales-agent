@@ -43,11 +43,37 @@ def get_headers():
     }
 
 def get_opportunities():
-    """Fetches all open opportunities for Workstream 2 analysis."""
-    endpoint = f"{_base_url}/api/data/v9.2/opportunities?$select=opportunityid,name,budgetamount,estimatedclosedate,stepname,modifiedon,_parentcontactid_value,statecode,_ownerid_value&$filter=statecode eq 0"
+    """Fetches all open opportunities with necessary fields and recent activities for Workstream 2 analysis."""
+    endpoint = f"{_base_url}/api/data/v9.2/opportunities?$select=opportunityid,name,budgetamount,estimatedvalue,estimatedclosedate,stepname,modifiedon,_parentcontactid_value,statecode,_ownerid_value,closeprobability,salesstagecode,description&$filter=statecode eq 0&$expand=Opportunity_ActivityPointers($select=subject,activitytypecode,statecode,scheduledend,modifiedon;$top=5;$orderby=modifiedon desc)"
     response = requests.get(endpoint, headers=get_headers())
     response.raise_for_status()
     return response.json().get('value', [])
+
+def get_todays_appointments():
+    """Module 5 (Meeting Intelligence): Fetches all appointments scheduled for the current day."""
+    from datetime import datetime, time, timezone
+    
+    # Dynamics Dataverse requires UTC ISO dates for filtering
+    today = datetime.now(timezone.utc).date()
+    start_of_day = datetime.combine(today, time.min).isoformat() + "Z"
+    end_of_day = datetime.combine(today, time.max).isoformat() + "Z"
+    
+    # We filter by appointments scheduled today, expand the regardingobject (usually an Opportunity) 
+    # to grab its name and value to provide context to the LLM
+    endpoint = (
+        f"{_base_url}/api/data/v9.2/appointments?"
+        f"$select=subject,scheduledstart,scheduledend,description"
+        f"&$filter=scheduledstart ge {start_of_day} and scheduledstart le {end_of_day}"
+        f"&$expand=regardingobjectid_opportunity_appointment($select=name,estimatedvalue)"
+    )
+    
+    try:
+        response = requests.get(endpoint, headers=get_headers())
+        response.raise_for_status()
+        return response.json().get('value', [])
+    except Exception as e:
+        print(f"Error fetching today's appointments: {e}")
+        return []
 
 def update_opportunity(opportunity_id, update_data):
     """Updates specific fields on an opportunity based on transcript extraction."""
