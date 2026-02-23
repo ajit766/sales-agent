@@ -1,7 +1,7 @@
 import requests
 import json
 from datetime import datetime, timedelta
-from d365_client import get_headers, _base_url, get_opportunities
+from api.clients.d365_client import get_headers, _base_url, get_opportunities
 
 def seed_opportunities():
     print("🚀 Seeding Dummy Opportunities & Activities for Daily Briefing...")

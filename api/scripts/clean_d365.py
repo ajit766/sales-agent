@@ -1,5 +1,5 @@
 import requests
-from d365_client import get_headers, _base_url, get_opportunities
+from api.clients.d365_client import get_headers, _base_url, get_opportunities
 
 def clean_opportunities():
     print("🧹 Cleaning orphaned dummy opportunities from Dynamics 365...")
