@@ -26,7 +26,7 @@ type AnalysisResponse = {
 
 // --- Components ---
 export default function SalesAgent() {
-  const [activeTab, setActiveTab] = useState<"loop" | "briefing">("loop");
+  const [activeTab, setActiveTab] = useState<"loop" | "briefing" | "risks">("loop");
 
   // Workstream 1 State
   const [transcript, setTranscript] = useState("");
@@ -37,6 +37,10 @@ export default function SalesAgent() {
   // Workstream 2 State
   const [briefingStep, setBriefingStep] = useState<"idle" | "generating" | "complete" | "error">("idle");
   const [briefingMarkdown, setBriefingMarkdown] = useState<string>("");
+
+  // Workstream 3 State (Silent Risks / Data Hygiene)
+  const [risksStep, setRisksStep] = useState<"idle" | "generating" | "complete" | "error">("idle");
+  const [risksMarkdown, setRisksMarkdown] = useState<string>("");
 
   // Step 1: Analyze Transcript
   const handleAnalyze = async () => {
@@ -102,7 +106,17 @@ export default function SalesAgent() {
         const text = await res.text();
         setTranscript(text);
       } else {
-        setTranscript("**Meeting Transcript: Q3 Expansion Planning**\\nRep: What did finance approve?\\nMark: $50,000 budget by March 15th.");
+        setTranscript(`**Microsoft Teams Transcript: ABC Corp - Enterprise Licenses Sync**
+        
+Rep (Alex): Hey Sarah, thanks for jumping on. Did you get a chance to review the Enterprise Licenses proposal we sent over?
+
+Client (Sarah): Yes, we had our internal review yesterday. The team is fully on board with the rollout. We've officially approved a budget of $1,950,000 for this first phase.
+
+Rep (Alex): That's fantastic news! And regarding the timeline, are we still aiming to have this closed out by next week?
+
+Client (Sarah): Precisely. Our hard deadline to get this signed and finalized is November 15th, 2024. 
+
+Rep (Alex): Perfect, I'll update the timeline on our end. I'll send over the final contract immediately so we can wrap this up!`);
       }
     } catch {
       setTranscript("Error loading dummy transcript.");
@@ -122,6 +136,22 @@ export default function SalesAgent() {
     } catch (err: any) {
       setErrorMessage(err.message);
       setBriefingStep("error");
+    }
+  };
+
+  // Workstream 3 Generation (Silent Risks)
+  const handleGenerateRisks = async () => {
+    setRisksStep("generating");
+    try {
+      const res = await fetch("/api/silent-risks", { method: "GET" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Silent Risks generation failed");
+
+      setRisksMarkdown(data.markdown);
+      setRisksStep("complete");
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setRisksStep("error");
     }
   };
 
@@ -160,6 +190,15 @@ export default function SalesAgent() {
                 )}
               >
                 Daily Briefing
+              </button>
+              <button
+                onClick={() => setActiveTab("risks")}
+                className={clsx(
+                  "px-4 py-1.5 text-sm font-medium rounded-md transition",
+                  activeTab === "risks" ? "bg-slate-800 text-rose-400 shadow-sm" : "text-slate-400 hover:text-rose-400/70"
+                )}
+              >
+                Silent Risks
               </button>
             </div>
           </div>
@@ -535,6 +574,100 @@ export default function SalesAgent() {
                   Go Back
                 </button>
               </div>
+            </motion.div>
+          )}
+
+          {/* WORKSTREAM 3: SILENT RISKS VIEW */}
+          {activeTab === "risks" && (
+            <motion.div
+              key="risks"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              <div className="space-y-2">
+                <h2 className="text-3xl font-light tracking-tight text-white">Silent <span className="text-rose-400 font-medium">Risks</span></h2>
+                <p className="text-slate-400 text-lg">Proactively identify stalled and blocked deals requiring immediate corrective action.</p>
+              </div>
+
+              {risksStep === "idle" && (
+                <div className="flex justify-center py-20">
+                  <button
+                    onClick={handleGenerateRisks}
+                    className="px-8 py-4 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-300 rounded-xl font-medium tracking-wide flex items-center gap-3 transition-all shadow-lg shadow-rose-500/10 text-lg group"
+                  >
+                    <Target className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    Scan Pipeline for Silent Risks
+                  </button>
+                </div>
+              )}
+
+              {risksStep === "generating" && (
+                <div className="flex flex-col items-center justify-center py-32 space-y-8">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-rose-500 blur-2xl opacity-20 animate-pulse rounded-full" />
+                    <div className="w-20 h-20 bg-slate-900 border border-rose-500/30 rounded-2xl flex items-center justify-center shadow-xl">
+                      <AlertTriangle className="w-10 h-10 text-rose-400 animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-2xl font-medium text-white">Analyzing Data Hygiene...</h3>
+                    <p className="text-slate-400 max-w-sm mx-auto">
+                      Scanning Dataverse for stalled deals and extracting corrective action plans using Azure AI Foundry...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {risksStep === "complete" && (
+                <div className="space-y-6">
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGenerateRisks}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Rescan Pipeline
+                    </button>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl prose prose-invert prose-rose max-w-none
+                        prose-h1:text-3xl prose-h1:font-light prose-h1:tracking-tight prose-h1:mb-8 prose-h1:pb-4 prose-h1:border-b prose-h1:border-white/10
+                        prose-h2:text-xl prose-h2:font-medium prose-h2:text-rose-300 prose-h2:mt-10
+                        prose-table:overflow-hidden prose-table:rounded-lg prose-table:border prose-table:border-white/10
+                        prose-th:bg-slate-950 prose-th:px-4 prose-th:py-3 prose-th:text-xs prose-th:uppercase prose-th:tracking-wider prose-th:text-slate-400 text-left
+                        prose-td:px-4 prose-td:py-3 prose-td:border-t prose-td:border-white/5
+                        prose-li:text-slate-300 text-slate-300"
+                  >
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h2: ({ node, ...props }) => <h2 className="text-xl font-medium text-rose-300 mt-16 pt-8 border-t border-white/10" {...props} />,
+                        em: ({ node, ...props }) => <em className="text-slate-500 italic text-sm block mt-4 mb-4" {...props} />,
+                        br: ({ node, ...props }) => <br className="block content-[''] h-8 mt-4 mb-8 border-b border-white/5" {...props} />,
+                      }}
+                    >
+                      {risksMarkdown}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              )}
+
+              {risksStep === "error" && (
+                <div className="bg-red-950/20 border border-red-500/20 rounded-2xl p-12 text-center">
+                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <AlertTriangle className="w-8 h-8 text-red-400" />
+                  </div>
+                  <h2 className="text-2xl font-semibold text-white mb-2">Risk Scan Failed</h2>
+                  <p className="text-red-200/60 mb-8 max-w-lg mx-auto">{errorMessage}</p>
+                  <button
+                    onClick={() => setRisksStep("idle")}
+                    className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition"
+                  >
+                    Go Back
+                  </button>
+                </div>
+              )}
             </motion.div>
           )}
 
