@@ -93,5 +93,7 @@ The application is heavily modularized for production maintainability:
 
 ## 📚 Documentation
 For detailed structural reading, please reference:
-- `PRODUCT_REQUIREMENTS.md`: Full multi-phase scope and logic specifications.
+- `PRD_1_Meeting_Loop.md`: The core meeting-to-CRM automation requirements.
+- `PRD_2_Daily_Briefing.md`: Pipeline dashboard and Eisenhower Matrix logic.
+- `PRD_3_Silent_Risks.md`: Stagnation heuristic monitoring logic.
 - `architecture.md`: Detailed breakdown of the Dataverse authentication sequence and frontend/backend separation of concerns.
